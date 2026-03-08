@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>NCast TV</title>
+<meta name="application-name" content="NCast TV">
+<meta name="apple-mobile-web-app-title" content="NCast TV">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a0f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;600;700;900&family=Barlow+Condensed:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0f;
+  --surface:#111118;
+  --card:#16161f;
+  --border:#1e1e2e;
+  --red:#e63946;
+  --red2:#ff4d5a;
+  --gold:#f4a620;
+  --text:#e8e8f0;
+  --muted:#555570;
+  --live:#ff3333;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Barlow',sans-serif;
+  min-height:100dvh;
+  overflow-x:hidden;
+}
+
+/* ── NOISE TEXTURE OVERLAY ── */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:1000;opacity:.4;
+}
+
+/* ── TOPBAR ── */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;height:56px;
+  background:rgba(10,10,15,.92);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(230,57,70,.2);
+}
+.brand{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:28px;letter-spacing:3px;
+  line-height:1;
+}
+.brand span{color:var(--red)}
+.brand small{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:4px;color:var(--muted);display:block;margin-top:-2px}
+.live-dot{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted)}
+.live-dot span{width:7px;height:7px;border-radius:50%;background:var(--live);box-shadow:0 0 8px var(--live);animation:pulse 1.4s ease infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.topbar-time{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--gold)}
+
+/* ── HERO PLAYER ── */
+.hero{position:relative;width:100%;background:#000;overflow:hidden}
+.hero-aspect{position:relative;padding-top:56.25%}
+.hero iframe,.hero video{position:absolute;inset:0;width:100%;height:100%}
+.hero-overlay{
+  position:absolute;inset:0;
+  background:linear-gradient(to top, rgba(10,10,15,.9) 0%, transparent 40%);
+  pointer-events:none;z-index:2;
+}
+.hero-info{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:20px 16px 14px;z-index:3;
+}
+.hero-ch-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--red);
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;font-weight:900;letter-spacing:3px;
+  padding:3px 10px;border-radius:2px;
+  margin-bottom:8px;
+}
+.hero-ch-badge .dot{width:6px;height:6px;border-radius:50%;background:#fff;animation:pulse 1.4s ease infinite}
+.hero-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;letter-spacing:1px;line-height:1.1}
+.hero-desc{font-size:12px;color:rgba(232,232,240,.6);margin-top:4px;font-weight:300}
+
+/* ── CHANNEL STRIP ── */
+.ch-strip{
+  padding:16px 0 8px;
+  overflow-x:auto;scrollbar-width:none;
+  display:flex;gap:10px;padding-left:16px;
+}
+.ch-strip::-webkit-scrollbar{display:none}
+.ch-card{
+  flex-shrink:0;
+  width:72px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  cursor:pointer;
+}
+.ch-icon{
+  width:58px;height:58px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;
+  border:2px solid transparent;
+  transition:all .2s;position:relative;overflow:hidden;
+  background:var(--card);
+}
+.ch-icon::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.06),transparent);
+}
+.ch-card.active .ch-icon{
+  border-color:var(--red);
+  box-shadow:0 0 20px rgba(230,57,70,.4);
+}
+.ch-card .ch-num{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);font-family:'Barlow Condensed',sans-serif}
+.ch-card.active .ch-num{color:var(--red)}
+.ch-live-tag{
+  position:absolute;bottom:3px;left:50%;transform:translateX(-50%);
+  font-size:7px;font-weight:900;letter-spacing:1.5px;
+  background:var(--live);color:#fff;
+  padding:1px 5px;border-radius:2px;
+  display:none;
+}
+.ch-card.active .ch-live-tag{display:block}
+
+/* ── SECTION TITLE ── */
+.section{padding:0 16px;margin-top:20px}
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sec-title{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:13px;font-weight:900;letter-spacing:3px;
+  color:var(--muted);text-transform:uppercase;
+  display:flex;align-items:center;gap:8px;
+}
+.sec-title::before{content:'';width:3px;height:14px;background:var(--red);border-radius:2px}
+
+/* ── EPG LIST ── */
+.epg-list{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+.epg-item{
+  display:flex;align-items:center;gap:12px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:10px 12px;
+  cursor:pointer;transition:all .15s;
+  position:relative;overflow:hidden;
+}
+.epg-item::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--border);transition:background .2s;
+}
+.epg-item.now::before{background:var(--red)}
+.epg-item.now{border-color:rgba(230,57,70,.25);background:rgba(230,57,70,.06)}
+.epg-time{
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;color:var(--muted);
+  flex-shrink:0;width:44px;
+}
+.epg-item.now .epg-time{color:var(--red)}
+.epg-content{flex:1;min-width:0}
+.epg-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.epg-cat{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:1px}
+.epg-badge{
+  flex-shrink:0;font-size:9px;font-weight:900;letter-spacing:2px;
+  padding:3px 8px;border-radius:3px;
+}
+.badge-now{background:rgba(230,57,70,.15);color:var(--red);border:1px solid rgba(230,57,70,.3)}
+.badge-up{background:rgba(84,110,122,.1);color:var(--muted);border:1px solid var(--border)}
+
+/* ── CHANNEL GRID ── */
+.ch-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.ch-grid-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:12px;overflow:hidden;cursor:pointer;
+  transition:transform .15s,border-color .15s;
+  position:relative;
+}
+.ch-grid-card:active{transform:scale(.97)}
+.ch-grid-card.active{border-color:var(--red)}
+.ch-thumb{
+  width:100%;aspect-ratio:16/9;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:2px;
+  position:relative;overflow:hidden;
+}
+.ch-thumb-live{
+  position:absolute;top:6px;right:6px;
+  font-size:8px;font-weight:900;letter-spacing:2px;
+  background:var(--live);color:#fff;padding:2px 7px;border-radius:3px;
+  display:flex;align-items:center;gap:4px;
+}
+.ch-thumb-live::before{content:'';width:5px;height:5px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
+.ch-grid-info{padding:10px 12px}
+.ch-grid-name{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.5px}
+.ch-grid-desc{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;
+  height:60px;
+  background:rgba(10,10,15,.95);
+  backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);
+  display:flex;z-index:100;
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px;
+  cursor:pointer;color:var(--muted);transition:color .15s;
+  font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+}
+.nav-btn.active{color:var(--red)}
+.nav-icon{font-size:20px;line-height:1}
+
+/* ── SCREENS ── */
+.screen{display:none;padding-bottom:70px}
+.screen.active{display:block}
+
+/* ── SETTINGS ── */
+.settings-section{padding:16px;display:flex;flex-direction:column;gap:10px}
+.setting-card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.setting-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--border);
+}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:14px;font-weight:600}
+.setting-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.setting-val{font-size:13px;color:var(--red);font-weight:700}
+.fi{
+  width:100%;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;color:var(--text);
+  font-size:14px;font-family:'Barlow',sans-serif;outline:none;
+  transition:border-color .2s;
+}
+.fi:focus{border-color:var(--red)}
+.btn-save{
+  background:var(--red);color:#fff;border:none;border-radius:10px;
+  padding:14px;width:100%;font-size:15px;font-weight:700;
+  font-family:'Barlow Condensed',sans-serif;letter-spacing:2px;
+  cursor:pointer;margin-top:6px;
+}
+.btn-save:active{opacity:.85}
+
+/* ── LOADING ── */
+.loader{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:9999;transition:opacity .5s;
+}
+.loader-logo{font-family:'Bebas Neue',sans-serif;font-size:56px;letter-spacing:4px;margin-top:16px}
+.loader-logo span{color:var(--red)}
+.loader-sub{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:5px;color:var(--muted);margin-top:4px}
+.loader-bar{width:140px;height:2px;background:var(--border);border-radius:2px;margin-top:28px;overflow:hidden}
+.loader-fill{height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--red2));border-radius:2px;transition:width .05s}
+
+/* ── SVG LOGO ── */
+.loader-svg{width:80px;height:80px}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--card);border:1px solid var(--border);
+  color:var(--text);font-size:13px;font-weight:600;
+  padding:10px 20px;border-radius:8px;
+  opacity:0;transition:all .25s;z-index:500;white-space:nowrap;
+  pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.empty-text{font-size:14px;font-weight:600;margin-bottom:6px}
+.empty-sub{font-size:12px;line-height:1.6}
+
+/* ── ABOUT CARD ── */
+.about-card{
+  margin:16px;background:linear-gradient(135deg,rgba(230,57,70,.12),rgba(230,57,70,.04));
+  border:1px solid rgba(230,57,70,.25);border-radius:16px;padding:24px;text-align:center;
+}
+.about-title{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:3px;margin-bottom:4px}
+.about-title span{color:var(--red)}
+.about-version{font-size:11px;color:var(--muted);letter-spacing:3px;font-family:'Barlow Condensed',sans-serif}
+.about-desc{font-size:13px;color:rgba(232,232,240,.7);margin-top:12px;line-height:1.7}
+
+/* ── TABLET/PC ── */
+@media(min-width:768px){
+  .hero-title{font-size:30px}
+  .ch-grid{grid-template-columns:repeat(3,1fr)}
+  .settings-section{max-width:480px;margin:0 auto}
+  .about-card{max-width:480px;margin:24px auto}
+  .section{padding:0 24px}
+  .ch-strip{padding-left:24px}
+}
+@media(min-width:1024px){
+  .hero-aspect{padding-top:45%}
+  .ch-grid{grid-template-columns:repeat(5,1fr)}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div class="loader" id="loader">
+  <svg class="loader-svg" viewBox="0 0 120 120">
+    <circle cx="60" cy="55" r="22" fill="none" stroke="#e63946" stroke-width="5"/>
+    <line x1="60" y1="33" x2="60" y2="18" stroke="#e63946" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="60" cy="55" rx="40" ry="17" fill="none" stroke="#e63946" stroke-width="3" opacity=".6"/>
+    <ellipse cx="60" cy="55" rx="55" ry="26" fill="none" stroke="#e63946" stroke-width="2" opacity=".3"/>
+  </svg>
+  <div class="loader-logo"><span>N</span>Cast <span style="color:#fff;font-size:40px">TV</span></div>
+  <div class="loader-sub">BROADCAST SYSTEM PRO</div>
+  <div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="brand"><span>N</span>Cast <small>LIVE TV</small></div>
+  <div class="topbar-time" id="top-time">00:00:00</div>
+  <div class="live-dot"><span></span>LIVE</div>
+</div>
+
+<!-- SCREEN: HOME -->
+<div class="screen active" id="scr-home">
+
+  <!-- HERO PLAYER -->
+  <div class="hero" id="hero-player">
+    <div class="hero-aspect">
+      <iframe id="hero-iframe" frameborder="0" allowfullscreen allow="autoplay;encrypted-media" style="display:none"></iframe>
+      <div id="hero-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0d0d14;flex-direction:column;gap:12px">
+        <svg width="60" height="60" viewBox="0 0 120 120" opacity=".3">
+          <circle cx="60" cy="55" r="22" fill="none" stroke="#e63946" stroke-width="5"/>
+          <line x1="60" y1="33" x2="60" y2="18" stroke="#e63946" stroke-width="5" stroke-linecap="round"/>
+          <ellipse cx="60" cy="55" rx="40" ry="17" fill="none" stroke="#e63946" stroke-width="3"/>
+          <ellipse cx="60" cy="55" rx="55" ry="26" fill="none" stroke="#e63946" stroke-width="2" opacity=".6"/>
+        </svg>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:3px;color:#333355">CHANNEL SELECT GARNUHOS</div>
+      </div>
+      <div class="hero-overlay"></div>
+      <div class="hero-info" id="hero-info" style="display:none">
+        <div class="hero-ch-badge"><div class="dot"></div><span id="hero-ch-name">CH 1</span></div>
+        <div class="hero-title" id="hero-title">Live Broadcasting</div>
+        <div class="hero-desc" id="hero-desc">NCast Live TV</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHANNEL STRIP -->
+  <div class="ch-strip" id="ch-strip"></div>
+
+  <!-- EPG NOW/NEXT -->
+  <div class="section" id="epg-section" style="display:none">
+    <div class="sec-header">
+      <div class="sec-title">Program Guide</div>
+    </div>
+    <div class="epg-list" id="epg-now-list"></div>
+  </div>
+
+  <!-- ALL CHANNELS GRID -->
+  <div class="section">
+    <div class="sec-header">
+      <div class="sec-title">Channels</div>
+    </div>
+    <div class="ch-grid" id="ch-grid"></div>
+  </div>
+
+</div>
+
+<!-- SCREEN: CHANNELS -->
+<div class="screen" id="scr-channels">
+  <div class="section" style="margin-top:16px">
+    <div class="sec-header"><div class="sec-title">All Channels</div></div>
+    <div class="ch-grid" id="ch-grid2" style="margin-bottom:16px"></div>
+  </div>
+</div>
+
+<!-- SCREEN: EPG -->
+<div class="screen" id="scr-epg">
+  <div class="section" style="margin-top:16px">
+    <div class="sec-header">
+      <div class="sec-title">Program Guide</div>
+      <select id="epg-filter" style="background:var(--card);border:1px solid var(--border);color:var(--text);font-size:11px;padding:4px 8px;border-radius:6px;font-family:Barlow,sans-serif" onchange="renderEPGScreen()">
+        <option value="0">All CH</option>
+        <option value="1">CH 1</option><option value="2">CH 2</option>
+        <option value="3">CH 3</option><option value="4">CH 4</option><option value="5">CH 5</option>
+      </select>
+    </div>
+    <div id="epg-full-list"></div>
+  </div>
+</div>
+
+<!-- SCREEN: SETTINGS -->
+<div class="screen" id="scr-settings">
+  <div class="about-card">
+    <div class="about-title"><span>N</span>Cast TV</div>
+    <div class="about-version">VIEWER APP v1.0</div>
+    <div class="about-desc">Nepal ko pailaa IPTV platform.<br>5 channels, live broadcasting, EPG guide.</div>
+  </div>
+  <div class="settings-section">
+    <div class="setting-card">
+      <div class="setting-row">
+        <div><div class="setting-label">Server Setup</div><div class="setting-sub">YouTube / Ant Media URL</div></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px" id="ch-settings-list"></div>
+
+    <button class="btn-save" onclick="saveSettings()">&#10003; SAVE GARNUHOS</button>
+
+    <div class="setting-card" style="margin-top:4px">
+      <div class="setting-row" onclick="clearAll()" style="cursor:pointer">
+        <div><div class="setting-label" style="color:#e63946">Reset</div><div class="setting-sub">Sabai settings clear garnu</div></div>
+        <div>&#8250;</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <div class="nav-btn active" id="nav-home" onclick="showScreen('home')">
+    <div class="nav-icon">&#127968;</div>Home
+  </div>
+  <div class="nav-btn" id="nav-channels" onclick="showScreen('channels')">
+    <div class="nav-icon">&#128250;</div>Channels
+  </div>
+  <div class="nav-btn" id="nav-epg" onclick="showScreen('epg')">
+    <div class="nav-icon">&#128198;</div>Guide
+  </div>
+  <div class="nav-btn" id="nav-settings" onclick="showScreen('settings')">
+    <div class="nav-icon">&#9881;</div>Settings
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ──
+var CH = 5;
+var channels = [];
+var epgData = [];
+var activeCh = null;
+
+var defaultChannels = [
+  {id:1, name:'NCast CH 1', desc:'News & Current Affairs', color:'#e63946', url:'', active:false},
+  {id:2, name:'NCast CH 2', desc:'Entertainment & Movies', color:'#1565c0', url:'', active:false},
+  {id:3, name:'NCast CH 3', desc:'Music & Culture',        color:'#00897b', url:'', active:false},
+  {id:4, name:'NCast CH 4', desc:'Sports & Live Events',   color:'#f57c00', url:'', active:false},
+  {id:5, name:'NCast CH 5', desc:'Kids & Education',       color:'#7b1fa2', url:'', active:false},
+];
+
+// ── INIT ──
+function init(){
+  loadData();
+  renderChStrip();
+  renderChGrid();
+  renderChSettings();
+  renderEPGScreen();
+  startClock();
+  // Loader animation
+  var fill = document.getElementById('loader-fill');
+  var w = 0;
+  var iv = setInterval(function(){
+    w += 3;
+    fill.style.width = Math.min(w,100) + '%';
+    if(w >= 100){
+      clearInterval(iv);
+      setTimeout(function(){
+        var l = document.getElementById('loader');
+        l.style.opacity = '0';
+        setTimeout(function(){ l.style.display='none'; }, 500);
+      }, 300);
+    }
+  }, 25);
+}
+
+// ── DATA ──
+function loadData(){
+  try{
+    var raw = localStorage.getItem('ncast_viewer');
+    if(raw){
+      var d = JSON.parse(raw);
+      if(d.channels) channels = d.channels;
+      else channels = JSON.parse(JSON.stringify(defaultChannels));
+      if(d.epgData) epgData = d.epgData;
+    } else {
+      channels = JSON.parse(JSON.stringify(defaultChannels));
+    }
+  } catch(e){
+    channels = JSON.parse(JSON.stringify(defaultChannels));
+  }
+}
+
+function saveData(){
+  try{
+    localStorage.setItem('ncast_viewer', JSON.stringify({channels:channels, epgData:epgData}));
+  } catch(e){}
+}
+
+// ── CLOCK ──
+function startClock(){
+  function tick(){
+    var n = new Date();
+    var t = n.getHours().toString().padStart(2,'0') + ':' +
+            n.getMinutes().toString().padStart(2,'0') + ':' +
+            n.getSeconds().toString().padStart(2,'0');
+    var el = document.getElementById('top-time');
+    if(el) el.textContent = t;
+    updateEPGNow();
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ── SCREENS ──
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('scr-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if(name === 'epg') renderEPGScreen();
+  if(name === 'channels') renderChGrid2();
+}
+
+// ── CHANNEL STRIP ──
+function renderChStrip(){
+  var el = document.getElementById('ch-strip');
+  var html = '';
+  channels.forEach(function(ch){
+    var hasUrl = ch.url && ch.url.trim() !== '';
+    html += '<div class="ch-card' + (activeCh===ch.id?' active':'') + '" onclick="selectCh(' + ch.id + ')">' +
+      '<div class="ch-icon" style="background:' + (hasUrl ? ch.color+'22' : 'var(--card)') + ';color:' + ch.color + ';border-color:' + (activeCh===ch.id?ch.color:'transparent') + '">' +
+        'CH' + ch.id +
+        (hasUrl ? '<div class="ch-live-tag">LIVE</div>' : '') +
+      '</div>' +
+      '<div class="ch-num">' + (ch.name.length > 8 ? ch.name.slice(0,8) : ch.name) + '</div>' +
+    '</div>';
+  });
+  el.innerHTML = html;
+}
+
+// ── CHANNEL GRID ──
+function renderChGrid(){
+  var el = document.getElementById('ch-grid');
+  if(!el) return;
+  var html = '';
+  channels.forEach(function(ch){
+    var hasUrl = ch.url && ch.url.trim() !== '';
+    html += '<div class="ch-grid-card' + (activeCh===ch.id?' active':'') + '" onclick="selectCh(' + ch.id + ')">' +
+      '<div class="ch-thumb" style="background:linear-gradient(135deg,' + ch.color + '22,' + ch.color + '08);color:' + ch.color + '">' +
+        '<span style="font-family:Bebas Neue,sans-serif;font-size:28px;letter-spacing:2px">CH ' + ch.id + '</span>' +
+        (hasUrl ? '<div class="ch-thumb-live">LIVE</div>' : '') +
+      '</div>' +
+      '<div class="ch-grid-info">' +
+        '<div class="ch-grid-name">' + ch.name + '</div>' +
+        '<div class="ch-grid-desc">' + ch.desc + '</div>' +
+      '</div>' +
+    '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function renderChGrid2(){
+  var el = document.getElementById('ch-grid2');
+  if(!el) return;
+  el.innerHTML = document.getElementById('ch-grid').innerHTML;
+  // Re-bind clicks
+  el.querySelectorAll('.ch-grid-card').forEach(function(card, i){
+    card.onclick = function(){ selectCh(channels[i].id); showScreen('home'); };
+  });
+}
+
+// ── SELECT CHANNEL ──
+function selectCh(id){
+  activeCh = id;
+  var ch = channels.find(function(c){ return c.id === id; });
+  if(!ch) return;
+
+  // Update hero
+  var iframe = document.getElementById('hero-iframe');
+  var placeholder = document.getElementById('hero-placeholder');
+  var heroInfo = document.getElementById('hero-info');
+
+  if(ch.url && ch.url.trim() !== ''){
+    var embedUrl = getEmbedUrl(ch.url.trim());
+    iframe.src = embedUrl;
+    iframe.style.display = 'block';
+    placeholder.style.display = 'none';
+    heroInfo.style.display = 'block';
+    document.getElementById('hero-ch-name').textContent = ch.name;
+    document.getElementById('hero-title').textContent = getNowProgram(id);
+    document.getElementById('hero-desc').textContent = ch.desc;
+  } else {
+    iframe.src = '';
+    iframe.style.display = 'none';
+    placeholder.style.display = 'flex';
+    heroInfo.style.display = 'none';
+    toast('CH' + id + ' ko URL settings ma halnuhos!');
+  }
+
+  // Update EPG section
+  var epgSec = document.getElementById('epg-section');
+  var nowEpg = epgData.filter(function(e){ return e.ch === id; });
+  epgSec.style.display = nowEpg.length ? 'block' : 'none';
+  updateEPGNow();
+
+  renderChStrip();
+  renderChGrid();
+}
+
+// ── GET EMBED URL ──
+function getEmbedUrl(url){
+  // YouTube
+  var ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/);
+  if(ytMatch) return 'https://www.youtube.com/embed/' + ytMatch[1] + '?autoplay=1&mute=0';
+  // YouTube channel/user live
+  if(url.includes('youtube.com/channel') || url.includes('youtube.com/@')){
+    return url.replace('youtube.com/channel','youtube.com/embed/live_stream?channel=')
+              .replace('youtube.com/@','youtube.com/embed/live_stream?channel=');
+  }
+  // M3U8 / HLS - show info
+  if(url.includes('.m3u8')) return '';
+  // Direct embed
+  return url;
+}
+
+// ── EPG HELPERS ──
+function getNowT(){
+  var n = new Date();
+  return n.getHours().toString().padStart(2,'0') + ':' + n.getMinutes().toString().padStart(2,'0');
+}
+
+function getNowProgram(chId){
+  var nowT = getNowT();
+  var prog = epgData.find(function(e){ return e.ch===chId && e.start<=nowT && e.end>=nowT; });
+  return prog ? prog.title : 'Live Broadcasting';
+}
+
+function updateEPGNow(){
+  if(!activeCh) return;
+  var nowT = getNowT();
+  var list = document.getElementById('epg-now-list');
+  if(!list) return;
+  var items = epgData.filter(function(e){ return e.ch===activeCh; });
+  if(!items.length){ document.getElementById('epg-section').style.display='none'; return; }
+  document.getElementById('epg-section').style.display = 'block';
+  var html = '';
+  items.slice(0,4).forEach(function(e){
+    var isNow = e.start<=nowT && e.end>=nowT;
+    var isUp = e.start > nowT;
+    html += '<div class="epg-item' + (isNow?' now':'') + '">' +
+      '<div class="epg-time">' + e.start + '</div>' +
+      '<div class="epg-content">' +
+        '<div class="epg-name">' + e.title + '</div>' +
+        '<div class="epg-cat">' + (e.cat||'') + '</div>' +
+      '</div>' +
+      '<div class="epg-badge ' + (isNow?'badge-now':'badge-up') + '">' + (isNow?'LIVE':'UP') + '</div>' +
+    '</div>';
+  });
+  list.innerHTML = html;
+}
+
+// ── EPG FULL SCREEN ──
+function renderEPGScreen(){
+  var el = document.getElementById('epg-full-list');
+  var filter = +document.getElementById('epg-filter').value;
+  var nowT = getNowT();
+  var items = filter ? epgData.filter(function(e){ return e.ch===filter; }) : epgData;
+  items.sort(function(a,b){ return a.start.localeCompare(b.start); });
+  if(!items.length){
+    el.innerHTML = '<div class="empty"><div class="empty-icon">&#128198;</div><div class="empty-text">EPG Data chaina</div><div class="empty-sub">NCast Broadcaster app ma EPG tab ma programs add garnuhos</div></div>';
+    return;
+  }
+  var html = '';
+  items.forEach(function(e){
+    var isNow = e.start<=nowT && e.end>=nowT;
+    html += '<div class="epg-item' + (isNow?' now':'') + '" style="margin-bottom:6px">' +
+      '<div style="flex-shrink:0;text-align:center;min-width:36px">' +
+        '<div style="font-size:9px;font-weight:900;font-family:Barlow Condensed,sans-serif;color:' + channels[e.ch-1].color + '">CH'+e.ch+'</div>' +
+        '<div class="epg-time" style="width:auto">' + e.start + '</div>' +
+      '</div>' +
+      '<div class="epg-content">' +
+        '<div class="epg-name">' + e.title + '</div>' +
+        '<div class="epg-cat">' + e.start + ' - ' + e.end + (e.desc?' | '+e.desc:'') + '</div>' +
+      '</div>' +
+      '<div class="epg-badge ' + (isNow?'badge-now':'badge-up') + '">' + (isNow?'NOW':'') + '</div>' +
+    '</div>';
+  });
+  el.innerHTML = html;
+}
+
+// ── SETTINGS ──
+function renderChSettings(){
+  var el = document.getElementById('ch-settings-list');
+  var html = '';
+  channels.forEach(function(ch){
+    html += '<div class="setting-card">' +
+      '<div class="setting-row"><div>' +
+        '<div class="setting-label" style="color:' + ch.color + '">CH ' + ch.id + ' — ' + ch.name + '</div>' +
+        '<div class="setting-sub">' + ch.desc + '</div>' +
+      '</div></div>' +
+      '<div style="padding:0 16px 14px">' +
+        '<input class="fi" type="text" id="url-' + ch.id + '" placeholder="YouTube URL vaa Stream URL..." value="' + (ch.url||'') + '">' +
+        '<div style="margin-top:6px;display:flex;gap:6px">' +
+          '<input class="fi" type="text" id="name-' + ch.id + '" placeholder="Channel naam..." value="' + ch.name + '" style="flex:1">' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function saveSettings(){
+  channels.forEach(function(ch){
+    var urlEl = document.getElementById('url-' + ch.id);
+    var nameEl = document.getElementById('name-' + ch.id);
+    if(urlEl) ch.url = urlEl.value.trim();
+    if(nameEl && nameEl.value.trim()) ch.name = nameEl.value.trim();
+  });
+  saveData();
+  renderChStrip();
+  renderChGrid();
+  toast('Settings saved!');
+  setTimeout(function(){ showScreen('home'); }, 800);
+}
+
+function clearAll(){
+  if(!confirm('Sabai settings reset garnu?')) return;
+  channels = JSON.parse(JSON.stringify(defaultChannels));
+  epgData = [];
+  saveData();
+  renderChStrip(); renderChGrid(); renderChSettings();
+  toast('Reset bhayo!');
+}
+
+// ── IMPORT FROM NCAST ──
+function importFromNCast(){
+  try{
+    var raw = localStorage.getItem('nbc_v7');
+    if(!raw){ toast('NCast data chhaina! NCast app ma save garnuhos'); return; }
+    var d = JSON.parse(raw);
+    if(d.epgData && d.epgData.length){
+      epgData = d.epgData;
+      saveData();
+      renderEPGScreen();
+      toast('EPG imported: ' + epgData.length + ' programs!');
+    } else {
+      toast('NCast ma EPG data chhaina');
+    }
+  } catch(e){ toast('Import failed!'); }
+}
+
+// ── TOAST ──
+function toast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(function(){ t.classList.remove('show'); }, 2500);
+}
+
+// ── START ──
+init();
+</script>
+</body>
+</html>
